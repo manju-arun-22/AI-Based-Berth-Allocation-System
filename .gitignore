@@ -1,0 +1,32 @@
+# Virtual environment
+venv311/
+venv/
+.venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Trained model binaries (regenerate with: python main.py)
+results/models/
+
+# University template (binary, not needed in repo)
+771952 Dissertation Template (1).docx
+
+# Claude Code settings
+.claude/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Jupyter
+.ipynb_checkpoints/

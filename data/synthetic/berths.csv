@@ -1,0 +1,6 @@
+id,length,depth,beam,allowed_types
+B1,400,16,60,"container,roro"
+B2,350,14,55,"container,general,roro"
+B3,300,15,50,"tanker,bulk"
+B4,250,12,45,"tanker,bulk,general"
+B5,200,10,35,"general,bulk,roro"

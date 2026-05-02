@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>AI Berth Allocation System</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+:root { --navy:#0d1b3e; --blue:#1565c0; --accent:#00b4d8; --green:#198754; --bg:#eef2f7; }
+*{box-sizing:border-box;}
+body{background:var(--bg);font-family:'Segoe UI',sans-serif;margin:0;}
+
+/* ── Navbar ── */
+.navbar-custom{background:linear-gradient(135deg,var(--navy),var(--blue));padding:.65rem 1.5rem;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 12px rgba(0,0,0,.3);}
+.brand-text{color:#fff;font-size:1.1rem;font-weight:700;}
+.brand-sub{color:var(--accent);font-size:.75rem;display:block;margin-top:-3px;}
+.nav-tabs-custom{display:flex;gap:4px;}
+.nav-tab{background:rgba(255,255,255,.12);color:#fff;border:none;padding:6px 18px;border-radius:20px;font-size:.85rem;cursor:pointer;transition:.2s;}
+.nav-tab.active{background:#fff;color:var(--navy);font-weight:700;}
+.nav-tab:hover:not(.active){background:rgba(255,255,255,.22);}
+.status-dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px;}
+
+/* ── Cards / Panels ── */
+.panel{background:#fff;border-radius:14px;padding:1.3rem;box-shadow:0 2px 10px rgba(0,0,0,.07);margin-bottom:1rem;}
+.panel-title{font-size:.82rem;font-weight:700;color:var(--navy);text-transform:uppercase;letter-spacing:.7px;border-bottom:2px solid #eef2f7;padding-bottom:.5rem;margin-bottom:.9rem;}
+.kpi-card{background:#fff;border-radius:12px;padding:1rem 1.2rem;box-shadow:0 2px 10px rgba(0,0,0,.07);border-left:4px solid var(--accent);}
+.kpi-val{font-size:1.7rem;font-weight:700;color:var(--navy);line-height:1;}
+.kpi-lbl{font-size:.72rem;color:#6c757d;text-transform:uppercase;letter-spacing:.5px;margin-top:3px;}
+
+/* ── Type tags ── */
+.tag{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:14px;font-size:.76rem;font-weight:600;}
+.tag-container{background:#dbeafe;color:#1d4ed8;}
+.tag-bulk     {background:#fef9c3;color:#854d0e;}
+.tag-tanker   {background:#fee2e2;color:#991b1b;}
+.tag-general  {background:#dcfce7;color:#166534;}
+.tag-roro     {background:#ede9fe;color:#5b21b6;}
+
+/* ── Priority badges ── */
+.pri{padding:2px 9px;border-radius:12px;font-size:.74rem;font-weight:700;}
+.pri-high  {background:#fee2e2;color:#991b1b;}
+.pri-normal{background:#dbeafe;color:#1d4ed8;}
+.pri-low   {background:#f3f4f6;color:#374151;}
+
+/* ── Status badge ── */
+.status-confirmed{background:#dcfce7;color:#166534;padding:2px 10px;border-radius:12px;font-size:.74rem;font-weight:700;}
+
+/* ── Form ── */
+.form-label{font-size:.8rem;font-weight:600;color:#495057;margin-bottom:2px;}
+.form-control,.form-select{font-size:.84rem;border-radius:8px;border:1.5px solid #dee2e6;}
+.form-control:focus,.form-select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,180,216,.15);}
+
+/* ── Buttons ── */
+.btn-check-ai{background:linear-gradient(135deg,var(--blue),var(--accent));color:#fff;font-weight:700;font-size:.9rem;padding:.6rem 1.5rem;border-radius:9px;border:none;width:100%;transition:.2s;}
+.btn-check-ai:hover{opacity:.9;}
+.btn-confirm{background:linear-gradient(135deg,#166534,#22c55e);color:#fff;font-weight:700;border:none;padding:.55rem 1.4rem;border-radius:9px;transition:.2s;}
+.btn-confirm:hover{opacity:.9;}
+
+/* ── Result card ── */
+.result-card{border:2px solid #22c55e;border-radius:14px;padding:1.2rem;background:#f0fdf4;}
+.result-berth{font-size:2rem;font-weight:800;color:var(--navy);}
+.compat-check{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:.77rem;font-weight:600;margin:2px;}
+.compat-ok {background:#dcfce7;color:#166534;}
+.compat-no {background:#fee2e2;color:#991b1b;}
+.alt-berth{background:#f8faff;border:1.5px solid #e2e8f0;border-radius:9px;padding:.45rem .8rem;font-size:.8rem;cursor:pointer;transition:.15s;}
+.alt-berth:hover{border-color:var(--accent);background:#eff9ff;}
+
+/* ── Table ── */
+.alloc-table{font-size:.82rem;}
+.alloc-table thead th{background:var(--navy);color:#fff;font-size:.76rem;letter-spacing:.4px;padding:9px 11px;border:none;}
+.alloc-table tbody tr:hover{background:#f0f6ff;}
+
+/* ── Gantt wrapper ── */
+#dashGanttWrap{position:relative;height:220px;}
+
+/* ── Spinner ── */
+.spin-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:1rem;}
+.spin-overlay.on{display:flex;}
+
+/* ── Toast ── */
+.toast-wrap{position:fixed;bottom:1.5rem;right:1.5rem;z-index:10000;}
+
+/* ── Empty state ── */
+.empty-state{text-align:center;padding:2.5rem;color:#9ca3af;}
+.empty-state i{font-size:2.5rem;opacity:.3;display:block;margin-bottom:.5rem;}
+
+/* ── Filter row ── */
+.filter-row{display:flex;align-items:flex-end;gap:.6rem;flex-wrap:wrap;margin-bottom:.8rem;}
+.filter-row .form-control{max-width:170px;}
+</style>
+</head>
+<body>
+
+<!-- Spinner -->
+<div class="spin-overlay" id="spinner">
+  <div class="spinner-border text-light" style="width:3rem;height:3rem;"></div>
+  <div style="color:#fff;font-size:1rem;font-weight:600;" id="spinnerMsg">Processing...</div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- Confirmation Modal -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header" style="background:var(--navy);color:#fff;">
+        <h5 class="modal-title"><i class="fas fa-anchor me-2"></i>Confirm Berth Booking</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="confirmModalBody"></div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-success fw-bold" id="confirmModalBtn" onclick="submitConfirm()">
+          <i class="fas fa-check me-1"></i>Confirm Booking
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Navbar ───────────────────────────────────────────────────────────── -->
+<nav class="navbar-custom">
+  <div class="d-flex align-items-center gap-2">
+    <i class="fas fa-anchor fa-lg" style="color:var(--accent)"></i>
+    <div>
+      <span class="brand-text">AI Berth Allocation System</span>
+      <span class="brand-sub">MSc AI Dissertation &nbsp;|&nbsp; Manju Arun (202433718) &nbsp;|&nbsp; University of Hull</span>
+    </div>
+  </div>
+  <div class="d-flex align-items-center gap-3">
+    <div class="nav-tabs-custom">
+      <button class="nav-tab active" id="tabDash"    onclick="showView('dashboard')"><i class="fas fa-chart-gantt me-1"></i>Dashboard</button>
+      <button class="nav-tab"        id="tabBooking" onclick="showView('booking')">  <i class="fas fa-plus-circle me-1"></i>New Booking</button>
+    </div>
+    <span id="modelStatus" style="font-size:.78rem;color:#fff;opacity:.7;">Checking...</span>
+  </div>
+</nav>
+
+<div class="container-fluid px-3 pt-3">
+
+<!-- ═══════════════════ DASHBOARD VIEW ═══════════════════════════════════ -->
+<div id="viewDashboard">
+
+  <!-- KPI Row -->
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-md-3">
+      <div class="kpi-card"><div class="kpi-val" id="kpiTotal">0</div><div class="kpi-lbl">Total Bookings</div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="kpi-card" style="border-color:#22c55e"><div class="kpi-val" id="kpiToday">0</div><div class="kpi-lbl">Today's Vessels</div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="kpi-card" style="border-color:#f59e0b"><div class="kpi-val" id="kpiBerths">5</div><div class="kpi-lbl">Berths Available</div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="kpi-card" style="border-color:#8b5cf6"><div class="kpi-val" id="kpiDelay">—</div><div class="kpi-lbl">Avg Predicted Delay</div></div>
+    </div>
+  </div>
+
+  <!-- Filter + Gantt -->
+  <div class="panel">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <div class="panel-title mb-0"><i class="fas fa-chart-gantt me-2"></i>Berth Schedule</div>
+      <button class="btn btn-sm btn-outline-primary" onclick="showView('booking')">
+        <i class="fas fa-plus me-1"></i>New Booking
+      </button>
+    </div>
+
+    <!-- Date filter -->
+    <div class="filter-row">
+      <div>
+        <label class="form-label">From</label>
+        <input type="date" class="form-control form-control-sm" id="filterFrom"/>
+      </div>
+      <div>
+        <label class="form-label">To</label>
+        <input type="date" class="form-control form-control-sm" id="filterTo"/>
+      </div>
+      <button class="btn btn-sm btn-primary" onclick="applyFilter()"><i class="fas fa-filter me-1"></i>Apply</button>
+      <button class="btn btn-sm btn-outline-secondary" onclick="clearFilter()">Clear</button>
+    </div>
+
+    <!-- Gantt -->
+    <div id="dashGanttWrap">
+      <canvas id="dashGanttChart"></canvas>
+    </div>
+    <div id="ganttEmpty" class="empty-state" style="display:none">
+      <i class="fas fa-ship"></i>No confirmed bookings yet. Create your first booking.
+    </div>
+  </div>
+
+  <!-- Bookings Table -->
+  <div class="panel">
+    <div class="panel-title"><i class="fas fa-table me-2"></i>All Confirmed Bookings</div>
+    <div style="overflow-x:auto;">
+      <table class="table table-hover alloc-table mb-0">
+        <thead>
+          <tr>
+            <th>Booking ID</th><th>Vessel</th><th>Type</th><th>Berth</th>
+            <th>ETA</th><th>Pred. ATA</th><th>Start</th><th>End</th>
+            <th>Service</th><th>Delay</th><th>Priority</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="bookingsBody">
+          <tr><td colspan="12" class="text-center text-muted py-4">No bookings yet.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /dashboard -->
+
+
+<!-- ═══════════════════ NEW BOOKING VIEW ══════════════════════════════════ -->
+<div id="viewBooking" style="display:none;">
+  <div class="row g-3">
+
+    <!-- LEFT: Form -->
+    <div class="col-lg-5">
+      <div class="panel">
+        <div class="panel-title"><i class="fas fa-ship me-2"></i>Vessel Details</div>
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="form-label">Vessel ID</label>
+            <input class="form-control" id="bVid" placeholder="e.g. MSC-MAYA"/>
+          </div>
+          <div class="col-6">
+            <label class="form-label">Type</label>
+            <select class="form-select" id="bType">
+              <option value="container">Container</option>
+              <option value="bulk">Bulk</option>
+              <option value="tanker">Tanker</option>
+              <option value="general">General</option>
+              <option value="roro">RoRo</option>
+            </select>
+          </div>
+          <div class="col-4">
+            <label class="form-label">LOA (m)</label>
+            <input type="number" class="form-control" id="bLoa" placeholder="320"/>
+          </div>
+          <div class="col-4">
+            <label class="form-label">Beam (m)</label>
+            <input type="number" class="form-control" id="bBeam" placeholder="48"/>
+          </div>
+          <div class="col-4">
+            <label class="form-label">Draft (m)</label>
+            <input type="number" class="form-control" id="bDraft" placeholder="13"/>
+          </div>
+          <div class="col-6">
+            <label class="form-label">Service (hrs)</label>
+            <input type="number" class="form-control" id="bService" placeholder="20"/>
+          </div>
+          <div class="col-6">
+            <label class="form-label">Priority</label>
+            <select class="form-select" id="bPriority">
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label">ETA</label>
+            <input type="datetime-local" class="form-control" id="bEta"/>
+          </div>
+          <div class="col-6">
+            <label class="form-label">Wind (m/s)</label>
+            <input type="number" class="form-control" id="bWind" value="12" step="0.5"/>
+          </div>
+          <div class="col-6">
+            <label class="form-label">Visibility (km)</label>
+            <input type="number" class="form-control" id="bVis" value="8" step="0.5"/>
+          </div>
+        </div>
+
+        <button class="btn-check-ai mt-3" onclick="checkAllocation()">
+          <i class="fas fa-robot me-2"></i>Check AI Allocation
+        </button>
+        <div id="checkError" class="text-danger small mt-2" style="display:none;"></div>
+      </div>
+
+      <!-- Berth Info -->
+      <div class="panel">
+        <div class="panel-title"><i class="fas fa-warehouse me-2"></i>Port Berths</div>
+        <div id="berthCards">Loading...</div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Result -->
+    <div class="col-lg-7">
+
+      <!-- Empty state -->
+      <div id="resultEmpty" class="panel" style="min-height:200px;">
+        <div class="empty-state" style="padding:3rem;">
+          <i class="fas fa-robot" style="font-size:3rem;"></i>
+          <p class="mt-2">Fill in vessel details and click <strong>Check AI Allocation</strong>.<br/>
+          The AI will predict the best available berth considering all existing bookings.</p>
+        </div>
+      </div>
+
+      <!-- Result (hidden until check) -->
+      <div id="resultSection" style="display:none;">
+
+        <!-- Recommendation card -->
+        <div class="panel result-card" id="resultCard">
+          <div class="d-flex justify-content-between align-items-start mb-3">
+            <div>
+              <div class="text-muted small text-uppercase fw-bold">AI Recommended Berth</div>
+              <div class="result-berth" id="resBerth">B1</div>
+            </div>
+            <div class="text-end">
+              <div class="text-muted small">Predicted Delay</div>
+              <div class="fs-4 fw-bold text-warning" id="resDelay">+0.0h</div>
+            </div>
+          </div>
+
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <div class="bg-white rounded p-2 border">
+                <div class="small text-muted">Predicted ATA</div>
+                <div class="fw-semibold small" id="resPredAta">—</div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="bg-white rounded p-2 border">
+                <div class="small text-muted">Wait at Berth</div>
+                <div class="fw-semibold small" id="resWait">0h</div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="bg-white rounded p-2 border">
+                <div class="small text-muted">Berthing Start</div>
+                <div class="fw-semibold small" id="resStart">—</div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="bg-white rounded p-2 border">
+                <div class="small text-muted">Estimated End</div>
+                <div class="fw-semibold small" id="resEnd">—</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Compatibility checks -->
+          <div class="mb-3">
+            <div class="small fw-bold text-muted mb-1">COMPATIBILITY</div>
+            <span class="compat-check" id="cLoa"><i class="fas fa-ruler-horizontal"></i> LOA</span>
+            <span class="compat-check" id="cBeam"><i class="fas fa-arrows-left-right"></i> Beam</span>
+            <span class="compat-check" id="cDraft"><i class="fas fa-water"></i> Draft</span>
+            <span class="compat-check" id="cCargo"><i class="fas fa-box"></i> Cargo Type</span>
+          </div>
+
+          <!-- Alternative berths -->
+          <div id="altsSection" style="display:none;">
+            <div class="small fw-bold text-muted mb-1">ALTERNATIVE BERTHS</div>
+            <div id="altsList" class="d-flex flex-wrap gap-2"></div>
+          </div>
+
+          <!-- Confirm button -->
+          <button class="btn-confirm mt-3 w-100" onclick="openConfirmModal()">
+            <i class="fas fa-check-circle me-2"></i>Confirm This Booking
+          </button>
+        </div>
+
+      </div><!-- /resultSection -->
+    </div>
+  </div>
+</div><!-- /booking view -->
+
+</div><!-- /container -->
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let currentView    = 'dashboard';
+let lastCheckResult = null;
+let dashGantt      = null;
+let confirmModal   = null;
+
+const TYPE_COLORS = {
+  container: {bg:'rgba(59,130,246,.75)',  border:'#1d4ed8'},
+  bulk:      {bg:'rgba(234,179,8,.75)',   border:'#854d0e'},
+  tanker:    {bg:'rgba(239,68,68,.75)',   border:'#991b1b'},
+  general:   {bg:'rgba(34,197,94,.75)',  border:'#166534'},
+  roro:      {bg:'rgba(139,92,246,.75)', border:'#5b21b6'},
+};
+const BERTH_IDS = ['B1','B2','B3','B4','B5'];
+
+// ── Init ───────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  confirmModal = new bootstrap.Modal(document.getElementById('confirmModal'));
+  const now = new Date();
+  document.getElementById('bEta').value = new Date(now.getTime() + 6*3600000).toISOString().slice(0,16);
+  setFilterDefaults();
+  checkHealth();
+  loadBerths();
+  loadDashboard();
+});
+
+function setFilterDefaults() {
+  const today = new Date().toISOString().slice(0,10);
+  const week  = new Date(Date.now() + 7*86400000).toISOString().slice(0,10);
+  document.getElementById('filterFrom').value = today;
+  document.getElementById('filterTo').value   = week;
+}
+
+// ── View switcher ──────────────────────────────────────────────────────────
+function showView(v) {
+  currentView = v;
+  document.getElementById('viewDashboard').style.display = v === 'dashboard' ? '' : 'none';
+  document.getElementById('viewBooking').style.display   = v === 'booking'   ? '' : 'none';
+  document.getElementById('tabDash').classList.toggle('active',    v === 'dashboard');
+  document.getElementById('tabBooking').classList.toggle('active', v === 'booking');
+  if (v === 'dashboard') loadDashboard();
+}
+
+// ── API helper ─────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const opts = {method, headers:{'Content-Type':'application/json'}};
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(path, opts);
+  if (!r.ok) {
+    const e = await r.json();
+    if (e.detail?.validation_errors) throw new Error(e.detail.validation_errors.join('\n'));
+    throw new Error(e.detail || r.statusText);
+  }
+  return r.json();
+}
+
+// ── Health ─────────────────────────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const h = await api('GET', '/health');
+    const el = document.getElementById('modelStatus');
+    el.textContent = h.models_loaded ? `Models Ready (${h.features} features)` : 'Models Not Loaded';
+    el.style.opacity = h.models_loaded ? '1' : '.5';
+  } catch(e) { document.getElementById('modelStatus').textContent = 'API Error'; }
+}
+
+// ── Load berths ────────────────────────────────────────────────────────────
+async function loadBerths() {
+  try {
+    const berths = await api('GET', '/berths');
+    document.getElementById('berthCards').innerHTML = berths.map(b => `
+      <div style="background:#f8faff;border:1.5px solid #e2e8f0;border-radius:9px;padding:.6rem .9rem;margin-bottom:.4rem;">
+        <div class="d-flex justify-content-between">
+          <strong style="color:var(--navy)"><i class="fas fa-anchor me-1 text-primary"></i>${b.id}</strong>
+          <span style="font-size:.75rem;background:#eef2f7;padding:2px 8px;border-radius:10px;">${(b.allowed_types||[]).join(' · ')}</span>
+        </div>
+        <div class="d-flex gap-3 mt-1">
+          <small class="text-muted"><i class="fas fa-ruler-horizontal me-1"></i>${b.length}m</small>
+          <small class="text-muted"><i class="fas fa-arrows-left-right me-1"></i>${b.beam}m</small>
+          <small class="text-muted"><i class="fas fa-water me-1"></i>${b.depth}m</small>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) { document.getElementById('berthCards').textContent = 'Could not load berths.'; }
+}
+
+// ── Dashboard: load & render ───────────────────────────────────────────────
+async function loadDashboard(dateFrom, dateTo) {
+  try {
+    let url = '/confirmed';
+    const params = [];
+    if (dateFrom) params.push(`date_from=${dateFrom}`);
+    if (dateTo)   params.push(`date_to=${dateTo}`);
+    if (params.length) url += '?' + params.join('&');
+
+    const allocs = await api('GET', url);
+    updateKPIs(allocs);
+    try { renderDashGantt(allocs); } catch(e) { console.error('Gantt render error:', e); }
+    renderBookingsTable(allocs);
+  } catch(e) { console.error(e); }
+}
+
+function applyFilter() {
+  const f = document.getElementById('filterFrom').value;
+  const t = document.getElementById('filterTo').value;
+  loadDashboard(f || null, t || null);
+}
+function clearFilter() {
+  setFilterDefaults();
+  loadDashboard();
+}
+
+// ── KPIs ───────────────────────────────────────────────────────────────────
+function updateKPIs(allocs) {
+  document.getElementById('kpiTotal').textContent = allocs.length;
+  const today = new Date().toISOString().slice(0,10);
+  const todayCount = allocs.filter(a => a.actual_start.slice(0,10) === today).length;
+  document.getElementById('kpiToday').textContent = todayCount;
+  if (allocs.length) {
+    const avgDelay = (allocs.reduce((s,a) => s + a.predicted_delay_hours, 0) / allocs.length).toFixed(2);
+    document.getElementById('kpiDelay').textContent = `+${avgDelay}h`;
+  } else {
+    document.getElementById('kpiDelay').textContent = '—';
+  }
+}
+
+// ── Dashboard Gantt ────────────────────────────────────────────────────────
+function renderDashGantt(allocs) {
+  const wrap  = document.getElementById('dashGanttWrap');
+  const empty = document.getElementById('ganttEmpty');
+
+  if (!allocs.length) {
+    wrap.style.display  = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+  wrap.style.display  = 'block';
+  empty.style.display = 'none';
+
+  const datasets = allocs.map(a => {
+    const col = TYPE_COLORS[a.vessel_type] || TYPE_COLORS.general;
+    return {
+      label: a.vessel_id,
+      data: BERTH_IDS.map(b =>
+        b === a.berth_id
+          ? [safeDate(a.actual_start).getTime(), safeDate(a.end_time).getTime()]
+          : [null, null]
+      ),
+      backgroundColor: col.bg,
+      borderColor:     col.border,
+      borderWidth: 1.5,
+      borderRadius: 4,
+    };
+  });
+
+  if (dashGantt) dashGantt.destroy();
+  const ctx = document.getElementById('dashGanttChart').getContext('2d');
+  dashGantt = new Chart(ctx, {
+    type: 'bar',
+    data: {labels: BERTH_IDS, datasets},
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {display: false},
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              if (!ctx.raw || ctx.raw[0] === null) return null;
+              const a = allocs.find(x => x.vessel_id === ctx.dataset.label);
+              if (!a) return '';
+              return ` ${a.vessel_id} | ${a.vessel_type} | ${a.service_hours}h | ${a.priority}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: {unit:'hour', displayFormats:{hour:'d MMM HH:mm'}},
+          title: {display:true, text:'Date / Time'},
+          grid: {color:'rgba(0,0,0,.05)'},
+        },
+        y: {title:{display:true,text:'Berth'}, grid:{display:false}},
+      }
+    }
+  });
+}
+
+// ── Bookings Table ─────────────────────────────────────────────────────────
+function renderBookingsTable(allocs) {
+  const tbody = document.getElementById('bookingsBody');
+  if (!allocs.length) {
+    tbody.innerHTML = '<tr><td colspan="12" class="text-center text-muted py-4">No bookings match the selected date range.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = allocs.map(a => `
+    <tr>
+      <td><code>${a.booking_id}</code></td>
+      <td><strong>${a.vessel_id}</strong></td>
+      <td><span class="tag tag-${a.vessel_type}">${a.vessel_type}</span></td>
+      <td><strong>${a.berth_id}</strong></td>
+      <td>${fmtDT(a.eta)}</td>
+      <td>${fmtDT(a.predicted_ata)}</td>
+      <td>${fmtDT(a.actual_start)}</td>
+      <td>${fmtDT(a.end_time)}</td>
+      <td>${a.service_hours}h</td>
+      <td>${a.predicted_delay_hours >= 0 ? '+' : ''}${a.predicted_delay_hours}h</td>
+      <td><span class="pri pri-${a.priority}">${a.priority}</span></td>
+      <td><span class="status-confirmed">Confirmed</span></td>
+    </tr>
+  `).join('');
+}
+
+function safeDate(iso) {
+  if (!iso) return null;
+  // JS Date only supports up to 3 decimal places; strip extra sub-millisecond digits
+  return new Date(iso.replace(/(\.\d{3})\d+/, '$1'));
+}
+
+function fmtDT(iso) {
+  if (!iso) return '—';
+  const d = safeDate(iso);
+  if (!d || isNaN(d)) return iso.slice(0, 16).replace('T', ' ');
+  return `${d.getDate()} ${d.toLocaleString('en',{month:'short'})} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+// ── Check Allocation ───────────────────────────────────────────────────────
+async function checkAllocation() {
+  const errEl = document.getElementById('checkError');
+  errEl.style.display = 'none';
+
+  const vessel = {
+    vessel_id:    document.getElementById('bVid').value.trim(),
+    vessel_type:  document.getElementById('bType').value,
+    length_m:     parseFloat(document.getElementById('bLoa').value),
+    beam_m:       parseFloat(document.getElementById('bBeam').value),
+    draft_m:      parseFloat(document.getElementById('bDraft').value),
+    service_hours: parseFloat(document.getElementById('bService').value),
+    eta:          new Date(document.getElementById('bEta').value).toISOString(),
+    priority:     document.getElementById('bPriority').value,
+    wind_speed_ms: parseFloat(document.getElementById('bWind').value),
+    visibility_km: parseFloat(document.getElementById('bVis').value),
+    wave_height_m: 1.0, precipitation_mm: 0.5, historical_reliability: 0.75,
+  };
+
+  if (!vessel.vessel_id || isNaN(vessel.length_m) || isNaN(vessel.beam_m) || isNaN(vessel.draft_m) || isNaN(vessel.service_hours)) {
+    errEl.textContent = 'Please fill in all required fields.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  document.getElementById('spinnerMsg').textContent = 'Running AI prediction...';
+  document.getElementById('spinner').classList.add('on');
+
+  try {
+    const result = await api('POST', '/check', vessel);
+    lastCheckResult = result;
+    renderResult(result);
+  } catch(e) {
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+  } finally {
+    document.getElementById('spinner').classList.remove('on');
+  }
+}
+
+// ── Render Result ──────────────────────────────────────────────────────────
+function renderResult(r) {
+  document.getElementById('resultEmpty').style.display   = 'none';
+  document.getElementById('resultSection').style.display = '';
+
+  document.getElementById('resBerth').textContent  = r.recommended_berth;
+  document.getElementById('resDelay').textContent  = `${r.predicted_delay_hours >= 0 ? '+' : ''}${r.predicted_delay_hours}h`;
+  document.getElementById('resPredAta').textContent = fmtDT(r.predicted_ata);
+  document.getElementById('resWait').textContent    = r.wait_hours > 0 ? `${r.wait_hours}h` : 'No wait';
+  document.getElementById('resStart').textContent   = fmtDT(r.actual_start);
+  document.getElementById('resEnd').textContent     = fmtDT(r.end_time);
+
+  // Compatibility badges
+  const c = r.compatibility;
+  setCompat('cLoa',   c.loa,        'LOA');
+  setCompat('cBeam',  c.beam,       'Beam');
+  setCompat('cDraft', c.draft,      'Draft');
+  setCompat('cCargo', c.cargo,      'Cargo Type');
+
+  // Alternatives
+  const alts = r.alternatives || [];
+  const altsSection = document.getElementById('altsSection');
+  if (alts.length) {
+    document.getElementById('altsList').innerHTML = alts.map(a => `
+      <span class="alt-berth" onclick="selectAlternative('${a.berth_id}', '${a.actual_start}', ${a.wait_hours})">
+        <strong>${a.berth_id}</strong> &mdash; wait ${a.wait_hours}h
+      </span>
+    `).join('');
+    altsSection.style.display = '';
+  } else {
+    altsSection.style.display = 'none';
+  }
+}
+
+function setCompat(id, ok, label) {
+  const el = document.getElementById(id);
+  el.className = `compat-check ${ok ? 'compat-ok' : 'compat-no'}`;
+  const icon = ok ? 'fa-check' : 'fa-times';
+  el.innerHTML = `<i class="fas ${icon}"></i> ${label}`;
+}
+
+function selectAlternative(berthId, start, wait) {
+  if (!lastCheckResult) return;
+  lastCheckResult.recommended_berth = berthId;
+  lastCheckResult.actual_start      = start;
+  lastCheckResult.wait_hours        = wait;
+  // Recalculate end time
+  const endMs = safeDate(start).getTime() + lastCheckResult.service_hours * 3600000;
+  lastCheckResult.end_time          = new Date(endMs).toISOString();
+  renderResult(lastCheckResult);
+}
+
+// ── Confirmation Modal ─────────────────────────────────────────────────────
+function openConfirmModal() {
+  if (!lastCheckResult) return;
+  const r = lastCheckResult;
+  document.getElementById('confirmModalBody').innerHTML = `
+    <div class="row g-3">
+      <div class="col-md-6">
+        <h6 class="text-muted mb-2">VESSEL</h6>
+        <table class="table table-sm table-borderless mb-0">
+          <tr><td class="text-muted">ID</td>       <td><strong>${r.vessel_id}</strong></td></tr>
+          <tr><td class="text-muted">Type</td>     <td><span class="tag tag-${r.vessel_type}">${r.vessel_type}</span></td></tr>
+          <tr><td class="text-muted">LOA</td>      <td>${r.length_m}m</td></tr>
+          <tr><td class="text-muted">Beam</td>     <td>${r.beam_m}m</td></tr>
+          <tr><td class="text-muted">Draft</td>    <td>${r.draft_m}m</td></tr>
+          <tr><td class="text-muted">Priority</td> <td><span class="pri pri-${r.priority}">${r.priority}</span></td></tr>
+        </table>
+      </div>
+      <div class="col-md-6">
+        <h6 class="text-muted mb-2">ALLOCATION</h6>
+        <table class="table table-sm table-borderless mb-0">
+          <tr><td class="text-muted">Berth</td>         <td><strong class="fs-5">${r.recommended_berth}</strong></td></tr>
+          <tr><td class="text-muted">Pred. Delay</td>   <td class="text-warning fw-bold">+${r.predicted_delay_hours}h</td></tr>
+          <tr><td class="text-muted">Wait at Berth</td> <td>${r.wait_hours}h</td></tr>
+          <tr><td class="text-muted">Start</td>         <td>${fmtDT(r.actual_start)}</td></tr>
+          <tr><td class="text-muted">Est. End</td>      <td>${fmtDT(r.end_time)}</td></tr>
+          <tr><td class="text-muted">Service</td>       <td>${r.service_hours}h</td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="alert alert-success mt-3 mb-0">
+      <i class="fas fa-info-circle me-2"></i>
+      Confirming will reserve <strong>${r.recommended_berth}</strong> for <strong>${r.vessel_id}</strong>
+      starting <strong>${fmtDT(r.actual_start)}</strong>.
+    </div>
+  `;
+  confirmModal.show();
+}
+
+async function submitConfirm() {
+  if (!lastCheckResult) return;
+  const r = lastCheckResult;
+  const btn = document.getElementById('confirmModalBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Confirming...';
+
+  try {
+    const payload = {
+      vessel_id:             r.vessel_id,
+      vessel_type:           r.vessel_type,
+      berth_id:              r.recommended_berth,
+      eta:                   r.eta,
+      predicted_ata:         r.predicted_ata,
+      actual_start:          r.actual_start,
+      end_time:              r.end_time,
+      service_hours:         r.service_hours,
+      predicted_delay_hours: r.predicted_delay_hours,
+      priority:              r.priority,
+      length_m:              r.length_m,
+      beam_m:                r.beam_m,
+      draft_m:               r.draft_m,
+    };
+    const res = await api('POST', '/confirm', payload);
+    confirmModal.hide();
+    showToast(`Booking ${res.booking_id} confirmed for ${r.vessel_id} at ${r.recommended_berth}`, 'success');
+    lastCheckResult = null;
+    document.getElementById('resultSection').style.display = 'none';
+    document.getElementById('resultEmpty').style.display   = '';
+    document.getElementById('bVid').value = '';
+    showView('dashboard');
+  } catch(e) {
+    showToast('Confirmation failed: ' + e.message, 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-check me-1"></i>Confirm Booking';
+  }
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+function showToast(msg, type='success') {
+  const id = 'toast_' + Date.now();
+  const html = `
+    <div id="${id}" class="toast align-items-center text-bg-${type} border-0 mb-2 show" role="alert">
+      <div class="d-flex">
+        <div class="toast-body fw-semibold">${msg}</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="document.getElementById('${id}').remove()"></button>
+      </div>
+    </div>`;
+  document.getElementById('toastWrap').insertAdjacentHTML('beforeend', html);
+  setTimeout(() => { const el = document.getElementById(id); if(el) el.remove(); }, 5000);
+}
+</script>
+</body>
+</html>
